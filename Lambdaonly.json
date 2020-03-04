@@ -1,0 +1,146 @@
+{
+    "AWSTemplateFormatVersion": "2010-09-09",
+    "Description": "",
+    "Metadata": {},
+    "Parameters": {
+        "environmentCode": {
+            "Description": "Environment Code",
+            "Type": "String",
+            "Default": "dev",
+            "AllowedValues": [
+                "dev",
+                "qas",
+                "loa",
+                "stg",
+                "prd"
+            ]
+        },
+        "projectCode": {
+            "Description": "The Project code, example: SKT",
+            "Type": "String",
+            "Default": "test"
+        },
+        "serviceCode": {
+            "Description": "The Template Service Type code, example: app, web, core, db, kv",
+            "Type": "String",
+            "Default": "core"
+        },
+        "kmsStackName": {
+            "Description": "KMS STack Name",
+            "Type": "String"
+        },
+        "sqsStackName": {
+            "Description": "SQS STack Name",
+            "Type": "String"
+        }
+    },
+    "Mappings": {
+        "environment": {
+            "dev": {
+                "char": "d",
+                "awsAccount": "root",
+                "bcp": false
+            },
+            "qas": {
+                "char": "q",
+                "awsAccount": "root",
+                "bcp": false
+            },
+            "loa": {
+                "char": "l",
+                "awsAccount": "root",
+                "bcp": false
+            },
+            "stg": {
+                "char": "s",
+                "awsAccount": "root",
+                "bcp": false
+            },
+            "prd": {
+                "char": "",
+                "awsAccount": "",
+                "bcp": true
+            }
+        }
+    },
+    "Conditions": {},
+    "Resources": {
+        "LambdaExecutionRole": {
+            "Type": "AWS::IAM::Role",
+            "Properties": {
+                "AssumeRolePolicyDocument": {
+                    "Version": "2012-10-17",
+                    "Statement": [
+                        {
+                            "Action": [
+                                "sts:AssumeRole"
+                            ],
+                            "Effect": "Allow",
+                            "Principal": {
+                                "Service": [
+                                    "lambda.amazonaws.com"
+                                ]
+                            }
+                        }
+                    ]
+                },
+                "Policies": [
+                    {
+                        "PolicyName": "root",
+                        "PolicyDocument": {
+                            "Version": "2012-10-17",
+                            "Statement": [
+                                {
+                                    "Action": "*",
+                                    "Effect": "Allow",
+                                    "Resource": "*"
+                                }
+                            ]
+                        }
+                    }
+                ]
+            }
+        },
+        "LambdaFunction": {
+            "Type": "AWS::Lambda::Function",
+            "Properties": {
+                "Code": {
+                    "S3Bucket": "codefunctionlambda11",
+                    "S3Key": "index.zip"
+                },
+                "Handler": "index.handler",
+                "KmsKeyArn": {
+                    "Fn::ImportValue": {
+                        "Fn::Sub": "${kmsStackName}-Stackkms"
+                    }
+                },
+                "Role": {
+                    "Fn::GetAtt": [
+                        "LambdaExecutionRole",
+                        "Arn"
+                    ]
+                },
+                "Runtime": "nodejs12.x"
+            }
+        },
+        "LambdaFunctionEventSourceMapping": {
+            "Type": "AWS::Lambda::EventSourceMapping",
+            "Properties": {
+                "BatchSize": 10,
+                "Enabled": true,
+                "EventSourceArn": {
+                    "Fn::ImportValue": {
+                        "Fn::Sub": "${sqsStackName}-MyQueue1Info"
+                    }
+                },
+                "FunctionName": {
+                    "Fn::GetAtt": [
+                        "LambdaFunction",
+                        "Arn"
+                    ]
+                }
+            }
+        }
+    },
+    "Outputs": {}
+}
